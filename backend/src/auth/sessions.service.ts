@@ -127,6 +127,9 @@ export class SessionsService {
       await this.revoke(session.id, REVOKE_REASON.refreshReuse);
       throw new AppException(HttpStatus.UNAUTHORIZED, 'SESSION_EXPIRED');
     }
+    if (session.user.profile?.status === UserStatus.pending) {
+      throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_PENDING_APPROVAL');
+    }
     if (session.user.profile?.status === UserStatus.banned) {
       await this.revokeAllForUser(session.userId, REVOKE_REASON.banned);
       throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_BANNED', {

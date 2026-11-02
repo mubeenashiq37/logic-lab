@@ -94,25 +94,32 @@ export class AuthService {
         await this.sendVerificationCode(existing);
         return;
       }
+      if (existing.pinHash && !existing.passwordHash) {
+        return;
+      }
       throw new AppException(HttpStatus.CONFLICT, 'EMAIL_TAKEN');
     }
 
-    const passwordHash = await hash(input.password, BCRYPT_ROUNDS);
+    const passwordHash = input.password ? await hash(input.password, BCRYPT_ROUNDS) : null;
+    const pinHash = input.pin ? await hash(input.pin, BCRYPT_ROUNDS) : null;
     const user = await this.prisma.$transaction(async (tx) => {
       // The on_user_created trigger inserts the profile row (role = student).
       const created = await tx.user.create({
-        data: { email: input.email, passwordHash },
+        data: { email: input.email, passwordHash, pinHash },
       });
       await tx.profile.update({
         where: { id: created.id },
-        data: { fullName: input.fullName },
+        data: { fullName: input.fullName, status: UserStatus.pending },
       });
       return tx.user.findUniqueOrThrow({
         where: { id: created.id },
         include: { profile: true },
       });
     });
-    await this.sendVerificationCode(user);
+
+    if (input.password) {
+      await this.sendVerificationCode(user);
+    }
   }
 
   async resendVerificationCode(email: string): Promise<void> {
@@ -174,15 +181,44 @@ export class AuthService {
   }
 
   async login(input: LoginInput, meta: ClientMeta): Promise<LoginResult> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: input.email },
-      include: { profile: true },
-    });
-    const ok = await compare(input.password, user?.passwordHash ?? DUMMY_HASH);
-    if (!user || !user.passwordHash || !ok) {
+    let user: UserWithProfile | null = null;
+
+    if (input.pin) {
+      const users = await this.prisma.user.findMany({
+        where: { pinHash: { not: null } },
+        include: { profile: true },
+      });
+      const pin = input.pin ?? '';
+      const matched = await Promise.all(
+        users.map(async (candidate) => {
+          if (!candidate.pinHash) return null;
+          const ok = await compare(pin, candidate.pinHash);
+          return ok ? candidate : null;
+        }),
+      );
+      user = matched.find(Boolean) ?? null;
+    } else {
+      user = await this.prisma.user.findUnique({
+        where: { email: input.email },
+        include: { profile: true },
+      });
+      const password = input.password ?? '';
+      const ok = await compare(password, user?.passwordHash ?? DUMMY_HASH);
+      if (!user || !user.passwordHash || !ok) {
+        throw new AppException(HttpStatus.UNAUTHORIZED, 'INVALID_CREDENTIALS');
+      }
+    }
+
+    if (!user || !user.profile) {
       throw new AppException(HttpStatus.UNAUTHORIZED, 'INVALID_CREDENTIALS');
     }
-    if (!user.emailVerifiedAt) {
+    if (user.profile.status === UserStatus.pending) {
+      throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_PENDING_APPROVAL');
+    }
+    if (user.profile.status === UserStatus.banned) {
+      throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_BANNED');
+    }
+    if (!input.pin && !user.emailVerifiedAt) {
       throw new AppException(HttpStatus.FORBIDDEN, 'EMAIL_NOT_VERIFIED');
     }
     return this.startSession(user, meta);
@@ -334,6 +370,9 @@ export class AuthService {
     meta: ClientMeta,
   ): Promise<LoginResult> {
     const publicUser = toPublicUser(user);
+    if (publicUser.status === UserStatus.pending) {
+      throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_PENDING_APPROVAL');
+    }
     if (publicUser.status === UserStatus.banned) {
       throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_BANNED', {
         reason: user.profile?.bannedReason ?? null,

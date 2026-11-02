@@ -40,7 +40,7 @@ const s = t.admin.users;
 const PAGE_SIZE = 20;
 const ALL = "all";
 const ROLES: Role[] = ["student", "mentor", "admin", "super_admin"];
-const STATUSES: UserStatus[] = ["active", "banned"];
+const STATUSES: UserStatus[] = ["pending", "active", "banned"];
 
 const roleTone = {
   student: "neutral",
@@ -196,7 +196,15 @@ export default function AdminUsersPage() {
                       <StatusBadge tone={roleTone[u.role]}>{t.common.roles[u.role]}</StatusBadge>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge tone={u.status === "active" ? "success" : "danger"}>
+                      <StatusBadge
+                        tone={
+                          u.status === "active"
+                            ? "success"
+                            : u.status === "pending"
+                              ? "warning"
+                              : "danger"
+                        }
+                      >
                         {t.common.userStatus[u.status]}
                       </StatusBadge>
                     </TableCell>
@@ -223,7 +231,11 @@ export default function AdminUsersPage() {
                 <p className="text-muted-foreground truncate text-xs">{u.email}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <StatusBadge tone={roleTone[u.role]}>{t.common.roles[u.role]}</StatusBadge>
-                  <StatusBadge tone={u.status === "active" ? "success" : "danger"}>
+                  <StatusBadge
+                    tone={
+                      u.status === "active" ? "success" : u.status === "pending" ? "warning" : "danger"
+                    }
+                  >
                     {t.common.userStatus[u.status]}
                   </StatusBadge>
                   <StatusBadge>{u.emailVerified ? s.verified : s.unverified}</StatusBadge>

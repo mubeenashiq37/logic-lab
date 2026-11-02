@@ -15,17 +15,33 @@ export const passwordSchema = z
   .regex(/[0-9]/, 'Password must contain a number.');
 
 const otpSchema = z.string().regex(/^\d{6}$/, 'Enter the 6-digit code.');
+const pinSchema = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit PIN.');
 
-export const signupSchema = z.strictObject({
-  email: emailSchema,
-  password: passwordSchema,
-  fullName: z.string().trim().min(2).max(100),
-});
+export const signupSchema = z
+  .strictObject({
+    email: emailSchema,
+    fullName: z.string().trim().min(2).max(100),
+    password: passwordSchema.optional(),
+    pin: pinSchema.optional(),
+  })
+  .refine((value) => Boolean(value.password || value.pin), {
+    message: 'Provide either a password or a 6-digit PIN.',
+    path: ['password'],
+  });
 
-export const loginSchema = z.strictObject({
-  email: emailSchema,
-  password: z.string().min(1).max(72),
-});
+export const loginSchema = z
+  .strictObject({
+    email: emailSchema.optional(),
+    password: z.string().min(1).max(72).optional(),
+    pin: pinSchema.optional(),
+  })
+  .refine(
+    (value) => Boolean(value.pin || (value.email && value.password)),
+    {
+      message: 'Enter a valid 6-digit PIN or your email and password.',
+      path: ['pin'],
+    },
+  );
 
 export const verifyEmailSchema = z.strictObject({
   email: emailSchema,

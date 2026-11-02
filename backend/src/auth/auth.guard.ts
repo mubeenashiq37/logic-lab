@@ -113,6 +113,9 @@ export class AuthGuard implements CanActivate {
       throw new AppException(HttpStatus.UNAUTHORIZED, 'SESSION_EXPIRED');
     }
 
+    if (profile.status === UserStatus.pending) {
+      throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_PENDING_APPROVAL');
+    }
     if (profile.status === UserStatus.banned) {
       await this.sessions.revokeAllForUser(
         session.userId,

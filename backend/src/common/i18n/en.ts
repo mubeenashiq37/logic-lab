@@ -7,7 +7,9 @@ export const en = {
     SESSION_EXPIRED: 'Your session has expired. Please log in again.',
     SESSION_REVOKED_DEVICE_LIMIT:
       'You were signed out because your account was used on another device.',
-    INVALID_CREDENTIALS: 'Incorrect email or password.',
+    INVALID_CREDENTIALS: 'Incorrect PIN or password.',
+    ACCOUNT_PENDING_APPROVAL:
+      'Your account is waiting for admin approval before you can log in.',
     EMAIL_NOT_VERIFIED:
       'Please verify your email before logging in. We can send you a new code.',
     EMAIL_TAKEN: 'An account with this email already exists. Please log in.',

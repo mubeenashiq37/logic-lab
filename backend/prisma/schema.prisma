@@ -19,6 +19,7 @@ enum Role {
 }
 
 enum UserStatus {
+  pending
   active
   banned
 }
@@ -34,6 +35,7 @@ model User {
   email           String    @unique
   passwordHash    String?   @map("password_hash")
   googleId        String?   @unique @map("google_id")
+  pinHash         String?   @map("pin_hash")
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz
   totpSecret      String?   @map("totp_secret")
   totpEnabledAt   DateTime? @map("totp_enabled_at") @db.Timestamptz
@@ -79,7 +81,7 @@ model Profile {
   fullName     String     @default("") @map("full_name")
   avatarUrl    String?    @map("avatar_url")
   role         Role       @default(student)
-  status       UserStatus @default(active)
+  status       UserStatus @default(pending)
   bannedReason String?    @map("banned_reason")
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz
